@@ -123,9 +123,6 @@ fn main() {
             }
         }
     }
-
-
 	// println!("|{:?}|", gameboard.turn);
-
     println!("Hello, world!");
 }
