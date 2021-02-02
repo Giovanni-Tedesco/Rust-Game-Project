@@ -1,3 +1,5 @@
+use rand::Rng;
+use rand::distributions::{Distribution, Uniform};
 // Some fooling around with traits
 struct Environment {
 	state: Vec< Vec<i32> >,
@@ -10,15 +12,25 @@ struct Nature<'a> {
 }
 
 // Agent
-struct Agent {
-
-}
+struct Agent {}
 
 impl Agent {
 
-    fn action(env: &Environment) -> String {
-        return String::from("")
+    fn new() -> Agent {
+        return Agent{};
+    }
 
+    fn action(&self, env: &Environment) -> String {
+        let legal_moves: Vec<String> = env.legal_moves();
+        let mut rng = rand::thread_rng();
+        let range = Uniform::from(1..(legal_moves.len()));
+        let throw = range.sample(&mut rng);
+
+        let ret: String = legal_moves.index(throw);
+
+        return String::from("");
+
+       
     }
 }
 
@@ -81,28 +93,38 @@ impl State for Environment {
     fn legal_moves(&self) -> Vec<String> {
         let ret_vec: Vec<String> = Vec::new();
 
-        return Vec::new();
+        for i in 0..3 {
+            for j in 0..3 {
+                if self.state[i][j] == 0 {
+                    ret_vec.push(convert(i as i32, j as i32));
+                }
+            }
+        }
 
-
+        return ret_vec;
+        
     }
 
 }
 
 fn convert(i: i32, j: i32) -> String {
-    let x: char = 'a';
-    let y: char = '1';
+
+    let x: char = (i as u8 + 97) as char;
+    let y: char = (j as u8 + 49) as char;
+
     let mut ret: String = String::new();
 
     ret.push(x);
     ret.push(y);
 
-    println!("{}", ret);
     return ret;
 
 }
 fn main() {
 
     let mut gameboard = Environment::new(3);
+
+    let a1 = Agent::new();
 
     gameboard.update(String::from("a1"));
     gameboard.update(String::from("b3"));
@@ -114,15 +136,8 @@ fn main() {
 		}
 		println!("\n---------");
     }
-    convert(0, 2);
 
-    for i in 0..3 {
-        for j in 0..3 {
-            if gameboard.state[i][j] == 0 {
 
-            }
-        }
-    }
 	// println!("|{:?}|", gameboard.turn);
-    println!("Hello, world!");
+
 }
