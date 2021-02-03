@@ -26,23 +26,20 @@ impl Agent {
         let range = Uniform::from(1..(legal_moves.len()));
         let throw = range.sample(&mut rng);
 
-        let ret: String = legal_moves.index(throw);
+        let ret: String = legal_moves[throw].clone();
+        println!("{}", ret);
 
-        return String::from("");
-
-       
+        return ret;
     }
 }
 
 // Abstraction / Interface for the Environment
 trait State {
-
     // What the move will do. Moves will be in the form of strings
     fn update(&mut self, player_move: String);
-
     // Has the board reached a terminal position?
-    fn is_terminal(&self) -> bool;
-
+    // Returns the player who won, either -1, 1, or 0
+    fn is_terminal(&self) -> i8;
     // Return a list of legal move strings that the engine can play
     // This will vary based on the game being played
     fn legal_moves(&self) -> Vec< String >;
@@ -85,13 +82,82 @@ impl State for Environment {
         self.update_turn();
     }
 
-    fn is_terminal(&self) -> bool {
-        return false;
-    }
+    fn is_terminal(&self) -> i8 {
+        // Rows
+        for i in 0..3 {
+            if all_equal(&self.state[i], 1) {
+                println!("Row Wins");
+                return 1;
+            } else if all_equal(&self.state[i], 2) {
+                println!("Row Wins");
+                return -1
+            }
+        }
+        // Columns
+        for j in 0..3 {
+            let mut moves: Vec<i32> = Vec::new();
+            for i in 0..3 {
+                moves.push(self.state[i][j]);
+            }
+            if all_equal(&moves, 1) {
+                println!("Column Wins");
+                return 1;
+            } else if all_equal(&moves, 2) {
+                println!("Column Wins");
+                return -1; 
+            }
+        }
 
+        // Diagonals
+        // Left to right,
+        let mut i = 0;
+        let mut j = 0;
+        let mut moves: Vec<i32> = Vec::new();
+        while i < 3 && j < 3 {
+            moves.push(self.state[i][j]);
+            i += 1;
+            j += 1;
+        } 
+
+        if all_equal(&moves, 1) {
+            println!("Diagonal LtR wins");
+            return 1;
+        } else if all_equal(&moves, 2) {
+            println!("Diagonal LtR wins");
+            return -1;
+        }
+
+        moves.clear();
+        // Top right to bottom left
+        i = 0;
+        j = 3;
+
+        println!("Got here!");
+        while i < 3 {
+            // println!("{}", self.state[i][j]);
+            println!("Got in loop");
+            moves.push(self.state[i][j - 1]);
+            i += 1;
+            j -= 1;
+        }
+
+        if all_equal(&moves, 1) {
+            println!("Diagonal RtL wins");
+            return 1;
+        }
+
+        if all_equal(&moves, 2) {
+            println!("Diagonal RtL wins");
+            return -1;
+        }
+
+        return 0;
+   
+    }
+    
     // Should be as simple as finding what is missing.
     fn legal_moves(&self) -> Vec<String> {
-        let ret_vec: Vec<String> = Vec::new();
+        let mut ret_vec: Vec<String> = Vec::new();
 
         for i in 0..3 {
             for j in 0..3 {
@@ -105,6 +171,18 @@ impl State for Environment {
         
     }
 
+}
+
+
+fn all_equal(row: &Vec< i32 >, search: i32) -> bool {
+
+    for element in row {
+        if *element != search {
+            return false;
+        }       
+    }
+
+    return true;
 }
 
 fn convert(i: i32, j: i32) -> String {
@@ -126,8 +204,17 @@ fn main() {
 
     let a1 = Agent::new();
 
-    gameboard.update(String::from("a1"));
+    gameboard.update(String::from("a2"));
+    gameboard.update(String::from("a3"));
+    gameboard.update(String::from("b2"));
     gameboard.update(String::from("b3"));
+    gameboard.update(String::from("c1"));
+    gameboard.update(String::from("c3"));
+    
+
+    println!("{}", gameboard.is_terminal());
+
+    // gameboard.update(a1.action(&gameboard));
 
 
 	for i in 0..3 {
@@ -137,7 +224,5 @@ fn main() {
 		println!("\n---------");
     }
 
-
-	// println!("|{:?}|", gameboard.turn);
 
 }
