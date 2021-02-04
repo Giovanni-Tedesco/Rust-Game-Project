@@ -1,9 +1,12 @@
+use std::f32::NEG_INFINITY;
+
 use rand::Rng;
 use rand::distributions::{Distribution, Uniform};
 // Some fooling around with traits
+#[derive(Clone, Debug)]
 struct Environment {
 	state: Vec< Vec<i32> >,
-	turn: i32,
+	turn: i8,
 }
 
 struct Nature<'a> {
@@ -31,6 +34,46 @@ impl Agent {
 
         return ret;
     }
+
+    fn minimax(&self, env: &Environment) -> i8 {
+
+        if env.is_win() {
+            if env.get_turn() == 1 {
+                return 1;
+            } else {
+                return -1;
+            }
+        } else if env.is_draw() {
+            return 0;
+        } else {
+            let player: i8 = env.get_turn();
+
+            if player == 1 {
+                let mut max_num: i8 = f32::NEG_INFINITY as i8;
+                for next_move in env.legal_moves() {
+                    let mut new_environment: Environment = env.clone();
+                    new_environment.update(next_move);
+                    let score = self.minimax(&new_environment);
+                    if score >= max_num {
+                        max_num = score
+                    }
+                }
+                return max_num;
+            } else {
+                let mut min_num: i8 = f32::INFINITY as i8;
+                for next_move in env.legal_moves() {
+                    let mut new_environment: Environment = env.clone();
+                    new_environment.update(next_move);
+                    let score: i8 = self.minimax(&new_environment);
+                    if score <= min_num {
+                        min_num = score;
+                    }
+                }
+
+                return min_num;
+            }
+        }
+    }
 }
 
 // Abstraction / Interface for the Environment
@@ -39,10 +82,13 @@ trait State {
     fn update(&mut self, player_move: String);
     // Has the board reached a terminal position?
     // Returns the player who won, either -1, 1, or 0
-    fn is_terminal(&self) -> i8;
+    fn is_win(&self) -> bool;
+    fn is_draw(&self) -> bool;
     // Return a list of legal move strings that the engine can play
     // This will vary based on the game being played
     fn legal_moves(&self) -> Vec< String >;
+
+    fn get_turn(&self) -> i8;
 }
 
 // A sample environment implementation
@@ -52,10 +98,6 @@ impl Environment {
 			state: vec![vec![0; size as usize]; size as usize],
 			turn: 1
 		}
-    }
-
-    fn get_turn(&self) -> i32 {
-        return self.turn;
     }
 
     fn update_turn(&mut self) {
@@ -78,19 +120,36 @@ impl State for Environment {
 
         let mv2: usize = (mv[1] as u8 - 49) as usize;
 
-        self.state[mv1][mv2] = self.get_turn();
+        self.state[mv1][mv2] = self.get_turn() as i32;
         self.update_turn();
     }
 
-    fn is_terminal(&self) -> i8 {
+    fn get_turn(&self) -> i8 {
+        return self.turn;
+    }
+
+    fn is_draw(&self) -> bool {
+        for i in 0..3 {
+            for j in 0..3 {
+                if self.state[i][j] == 0 {
+                    return false
+                }
+            }
+        }
+
+        return true;
+    }
+
+    fn is_win(&self) -> bool {
+
         // Rows
         for i in 0..3 {
             if all_equal(&self.state[i], 1) {
-                println!("Row Wins");
-                return 1;
+                // println!("Row Wins");
+                return true;
             } else if all_equal(&self.state[i], 2) {
-                println!("Row Wins");
-                return -1
+                // println!("Row Wins");
+                return true;
             }
         }
         // Columns
@@ -100,11 +159,11 @@ impl State for Environment {
                 moves.push(self.state[i][j]);
             }
             if all_equal(&moves, 1) {
-                println!("Column Wins");
-                return 1;
+                // println!("Column Wins");
+                return true;
             } else if all_equal(&moves, 2) {
-                println!("Column Wins");
-                return -1; 
+                // println!("Column Wins");
+                return true;
             }
         }
 
@@ -117,14 +176,14 @@ impl State for Environment {
             moves.push(self.state[i][j]);
             i += 1;
             j += 1;
-        } 
+        }
 
         if all_equal(&moves, 1) {
-            println!("Diagonal LtR wins");
-            return 1;
+            // println!("Diagonal LtR wins");
+            return true;
         } else if all_equal(&moves, 2) {
-            println!("Diagonal LtR wins");
-            return -1;
+            // println!("Diagonal LtR wins");
+            return true;
         }
 
         moves.clear();
@@ -132,29 +191,31 @@ impl State for Environment {
         i = 0;
         j = 3;
 
-        println!("Got here!");
         while i < 3 {
             // println!("{}", self.state[i][j]);
-            println!("Got in loop");
             moves.push(self.state[i][j - 1]);
             i += 1;
             j -= 1;
         }
 
         if all_equal(&moves, 1) {
-            println!("Diagonal RtL wins");
-            return 1;
+            return true;
         }
 
         if all_equal(&moves, 2) {
-            println!("Diagonal RtL wins");
-            return -1;
+            return true;
         }
 
-        return 0;
-   
+        for i in 0..3 {
+            for j in 0..3 {
+                if self.state[i][j] != 0 {
+                    return false;
+                }
+            }
+        }
+
+        return false;
     }
-    
     // Should be as simple as finding what is missing.
     fn legal_moves(&self) -> Vec<String> {
         let mut ret_vec: Vec<String> = Vec::new();
@@ -168,7 +229,6 @@ impl State for Environment {
         }
 
         return ret_vec;
-        
     }
 
 }
@@ -179,7 +239,7 @@ fn all_equal(row: &Vec< i32 >, search: i32) -> bool {
     for element in row {
         if *element != search {
             return false;
-        }       
+        }
     }
 
     return true;
@@ -204,15 +264,16 @@ fn main() {
 
     let a1 = Agent::new();
 
-    gameboard.update(String::from("a2"));
-    gameboard.update(String::from("a3"));
-    gameboard.update(String::from("b2"));
-    gameboard.update(String::from("b3"));
-    gameboard.update(String::from("c1"));
-    gameboard.update(String::from("c3"));
-    
+    // gameboard.update(String::from("a2"));
+    // gameboard.update(String::from("a3"));
+    // gameboard.update(String::from("b2"));
+    // gameboard.update(String::from("b3"));
+    // gameboard.update(String::from("c1"));
 
-    println!("{}", gameboard.is_terminal());
+    println!("{}", a1.minimax(&gameboard));
+
+
+    // println!("{}", gameboard.is_terminal());
 
     // gameboard.update(a1.action(&gameboard));
 
