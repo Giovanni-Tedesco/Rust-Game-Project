@@ -37,11 +37,11 @@ impl Agent {
 
         let turn = env.get_turn();
 
-        let mut current_score = 0;
+        let mut current_score = 0.0;
         if turn == 1 {
-            current_score = -10
+            current_score = -10.0
         } else {
-            current_score = 10;
+            current_score = 10.0;
         }
 
         // TODO: Make with index instead of string.
@@ -50,8 +50,8 @@ impl Agent {
         // TODO: Instead find all good moves and pick one randomly.
         for next_move in legal_moves {
             let mut internal_env: Environment = env.clone();
-            internal_env.update(next_move.clone());
-            let pos_score = self.minimax(&internal_env, self.max_depth);
+            internal_env.update(&next_move.clone());
+            let pos_score = self.alphabeta(&internal_env, 10, f64::NEG_INFINITY, f64::INFINITY);
 
             if turn == 1 {
                 if pos_score > current_score {
@@ -68,11 +68,11 @@ impl Agent {
         return output_move;
     }
 
-    fn play_random(env: &Environment) -> i8 {
+    fn play_random(env: &Environment) -> f64 {
         let result = env.is_win();
         if env.is_draw() {
-            return 0;
-        } else if result != 0{
+            return 0.0;
+        } else if result != 0.0{
             return result
         } else {
             let mut temp_env = env.clone();
@@ -83,58 +83,134 @@ impl Agent {
 
             let num = range.sample(&mut rng);
 
-            temp_env.update(moves[num].clone());
+            temp_env.update(&moves[num].clone());
 
             return Agent::play_random(&temp_env);
         }
 
     }
 
-    fn score_position(&self, env: &Environment) -> i8 {
-        // How would I even score this?
-        // Play randomly 6 times and score the position.
-        let mut sum = 0;
-        for i in 0..self.max_depth {
+    fn score_position(&self, env: &Environment) -> f64 {
+        // Play randomly 100 times and score the position.
+        let mut sum = 0.0;
+        for i in 0..100 {
             sum += Agent::play_random(env);
         }
 
-        return sum / self.max_depth as i8;
+        return sum / 100.0 ;
     }
 
-    fn minimax(&self, env: &Environment, depth: i32) -> i8 {
-        // TODO: Implement a depth function / scoring function.
+    fn alphabeta(&self, env: &Environment, depth: i32, alpha: f64, beta: f64) -> f64 {
+
+        // TODO: Implement a cache of some sort.
+        // TODO: Improve scoring function.
+        // TODO: Improve end game checking. Shouldn't have to run all the end game
+        //       calculations every time.
+
         let result = env.is_win();
-        if depth == self.max_depth {
+
+        if depth == 0 {
             return self.score_position(env)
         }
-        if result != 0 {
+        if result != 0.0 {
             if env.get_turn() == 1 {
-                return 1;
+                return 1.0;
             } else {
-                return -1;
+                return -1.0;
             }
         } else if env.is_draw() {
-            return 0;
+            return 0.0;
+        } else {
+            let player: i8 = env.get_turn();
+
+            let mut value;
+
+            let new_environments = env
+            .legal_moves()
+            .iter()
+            .map(|a | env.what_if(a))
+            .collect::<Vec<_>>();
+
+            if player == 1 {
+                value = f64::NEG_INFINITY;
+                let mut next_alpha = alpha;
+                for new_environment in new_environments {
+
+                    let score = self.alphabeta(&new_environment, depth - 1, next_alpha, beta);
+
+                    if score > value {
+                        value = score
+                    }
+                    next_alpha = next_alpha.max(value);
+
+                    if next_alpha >= beta {
+                        break;
+                    }
+                }
+            } else {
+                value = f64::INFINITY;
+                let mut next_beta= beta;
+
+                for new_environment in new_environments {
+                    let score = self.alphabeta(&new_environment, depth, alpha, next_beta);
+                    // let score = self.minimax(&new_environment, depth);
+                    if score < value {
+                        value = score;
+                    }
+
+                    next_beta = next_beta.min(value);
+
+                    if next_beta <= alpha {
+                        break;
+                    }
+                }
+            }
+
+            return value;
+        }
+    }
+
+
+    fn minimax(&self, env: &Environment, depth: i32) -> f64 {
+        // TODO: Implement a depth function / scoring function.
+        let result = env.is_win();
+
+        if depth == 0 {
+            return self.score_position(env)
+        }
+        if result != 0.0 {
+            if env.get_turn() == 1 {
+                return 1.0;
+            } else {
+                return -1.0;
+            }
+        } else if env.is_draw() {
+            return 0.0;
         } else {
             let player: i8 = env.get_turn();
 
             if player == 1 {
-                let mut max_num: i8 = f32::NEG_INFINITY as i8;
+                let mut max_num = f64::NEG_INFINITY;
+
                 for next_move in env.legal_moves() {
+
                     let mut new_environment: Environment = env.clone();
-                    new_environment.update(next_move);
-                    let score = self.minimax(&new_environment, depth + 1);
+
+                    new_environment.update(&next_move);
+
+                    let score = self.minimax(&new_environment, depth - 1);
+
                     if score >= max_num {
                         max_num = score
                     }
                 }
                 return max_num;
             } else {
-                let mut min_num: i8 = f32::INFINITY as i8;
+                let mut min_num  = f64::INFINITY;
                 for next_move in env.legal_moves() {
                     let mut new_environment: Environment = env.clone();
-                    new_environment.update(next_move);
-                    let score: i8 = self.minimax(&new_environment, depth + 1);
+                    new_environment.update(&next_move);
+                    let score = self.minimax(&new_environment, depth - 1);
                     if score <= min_num {
                         min_num = score;
                     }
@@ -148,16 +224,17 @@ impl Agent {
 // Abstraction / Interface for the Environment
 trait State {
     // What the move will do. Moves will be in the form of strings
-    fn update(&mut self, player_move: String);
+    fn update(&mut self, player_move: &String);
     // Has the board reached a terminal position?
     // Returns the player who won, either -1, 1, or 0
     // Checks if the position is a win
-    fn is_win(&self) -> i8;
+    fn is_win(&self) -> f64;
     // Checks if the position is a draw
     fn is_draw(&self) -> bool;
     // Return a list of legal move strings that the engine can play
     // This will vary based on the game being played
     // fn result(&self) -> i8;
+    fn what_if(&self, action: &String) -> Environment;
 
     fn legal_moves(&self) -> Vec< String >;
     // Gets the players turn
@@ -166,6 +243,7 @@ trait State {
 
 // A sample environment implementation
 impl Environment {
+
 	fn new(size: i32) -> Environment {
 		return Environment {
 			state: vec![vec![0; size as usize]; size as usize],
@@ -180,12 +258,13 @@ impl Environment {
             self.turn = 1
         }
     }
+
 }
 
 // More or less game logic ?
 impl State for Environment {
 
-    fn update(&mut self, player_move: String) {
+    fn update(&mut self, player_move: &String) {
         // Note this is where 1 is 'X' and 2 is 'O'
         // ASCII Go brrrrr
         let mv: &[u8] = player_move.as_bytes();
@@ -213,16 +292,22 @@ impl State for Environment {
         return true;
     }
 
-    fn is_win(&self) -> i8 {
+    fn what_if(&self, action: &String) -> Environment {
+        let mut new_board = self.clone();
+        new_board.update(action);
+        return new_board
+    }
+
+    fn is_win(&self) -> f64 {
 
         // Rows
         for i in 0..3 {
             if all_equal(&self.state[i], 1) {
                 // println!("Row Wins");
-                return 1;
+                return 1.0;
             } else if all_equal(&self.state[i], 2) {
                 // println!("Row Wins");
-                return -1;
+                return -1.0;
             }
         }
         // Columns
@@ -233,10 +318,10 @@ impl State for Environment {
             }
             if all_equal(&moves, 1) {
                 // println!("Column Wins");
-                return 1;
+                return 1.0;
             } else if all_equal(&moves, 2) {
                 // println!("Column Wins");
-                return -1;
+                return -1.0;
             }
         }
 
@@ -253,10 +338,10 @@ impl State for Environment {
 
         if all_equal(&moves, 1) {
             // println!("Diagonal LtR wins");
-            return 1;
+            return 1.0;
         } else if all_equal(&moves, 2) {
             // println!("Diagonal LtR wins");
-            return -1;
+            return -1.0;
         }
 
         moves.clear();
@@ -272,14 +357,14 @@ impl State for Environment {
         }
 
         if all_equal(&moves, 1) {
-            return 1;
+            return 1.0;
         }
 
         if all_equal(&moves, 2) {
-            return -1;
+            return -1.0;
         }
 
-        return 0;
+        return 0.0;
     }
     // Should be as simple as finding what is missing.
     fn legal_moves(&self) -> Vec<String> {
@@ -300,13 +385,13 @@ impl State for Environment {
 
 fn play(env: &mut Environment, a1: &Agent, a2: &Agent) {
 
-    while !(env.is_draw() || env.is_win() != 0) {
+    while !(env.is_draw() || env.is_win() != 0.0) {
         let turn = env.get_turn();
 
         if turn == 1 {
-            env.update(a1.action(&env));
+            env.update(&a1.action(&env));
         } else {
-            env.update(a2.action(&env));
+            env.update(&a2.action(&env));
         }
 
         display(&env);
@@ -355,37 +440,10 @@ fn main() {
 
     let mut gameboard = Environment::new(3);
 
-    let a1 = Agent::new(5);
-    let a2 = Agent::new(5);
-
-    // gameboard.update(String::from("a2"));
-    // gameboard.update(String::from("a3"));
-    // gameboard.update(String::from("b2"));
-    // gameboard.update(String::from("b3"));
-    // gameboard.update(String::from("c1"));
-
-    // println!("{}", a1.minimax(&gameboard, 10));
-    // println!("{}", gameboard.is_terminal());
+    let a1 = Agent::new(10);
+    let a2 = Agent::new(10
+    );
 
     play(&mut gameboard, &a1, &a2);
-    // gameboard.update(a1.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a1.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
-    // gameboard.update(a2.action(&gameboard));
-    // display(&gameboard);
+
 }
